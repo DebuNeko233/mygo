@@ -953,6 +953,9 @@ func (e *dwrite) shapeText(text []rune, style Style, spans []Span, width float32
 	if width > 0 {
 		wrapAt = width + 1e-3
 	}
+	// The layout's inline objects, unpinned after it is released.
+	var objects layoutObjects
+	defer objects.unpin()
 	var layout uintptr
 	hr := method[func(this uintptr, text *uint16, n uint32, format uintptr, width, height float32, out *uintptr) uintptr](e.factory, factoryCreateTextLayout)(
 		e.factory, &u16[0], uint32(len(u16)), format, wrapAt, maxLayoutHeight, &layout)
@@ -972,7 +975,7 @@ func (e *dwrite) shapeText(text []rune, style Style, spans []Span, width float32
 		// Every stop at multiples of it, from the start of each line.
 		method[func(this uintptr, stop float32) uintptr](layout, formatSetIncrementalTab)(layout, style.tabStop)
 	}
-	e.typeset(layout, style, spans, text)
+	e.typeset(&objects, layout, style, spans, text)
 	if rtl {
 		// Trailing alignment keeps the lines at the left, as left-to-right
 		// lines are.
@@ -1037,7 +1040,7 @@ func (e *dwrite) shapeText(text []rune, style Style, spans []Span, width float32
 		}
 		lefts[li], lines[li].runs = ls, rs
 	}
-	if len(layoutObjects.objects) > 0 {
+	if len(objects.objects) > 0 {
 		units := make([]uint32, len(text)+1)
 		for i, r := range text {
 			units[i+1] = units[i] + 1
@@ -1222,8 +1225,9 @@ func distance(r dwRun, i uint32) uint32 {
 }
 
 // typeset applies a style's letter spacing and OpenType features to a text
-// layout of text, and the styles of its spans to their ranges.
-func (e *dwrite) typeset(layout uintptr, style Style, spans []Span, text []rune) {
+// layout of text, and the styles of its spans to their ranges, keeping its
+// inline objects in objects.
+func (e *dwrite) typeset(objects *layoutObjects, layout uintptr, style Style, spans []Span, text []rune) {
 	// The code unit of each rune, and a DWRITE_TEXT_RANGE of runes, passed
 	// in a register.
 	units := make([]uint32, len(text)+1)
@@ -1286,7 +1290,7 @@ func (e *dwrite) typeset(layout uintptr, style Style, spans []Span, text []rune)
 			}
 		}
 	}
-	setObjects(layout, spans, units)
+	setObjects(objects, layout, spans, units)
 }
 
 // spacing adds letter spacing to a range of a text layout, or, set, makes

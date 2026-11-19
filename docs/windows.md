@@ -65,7 +65,7 @@ on the screen. Sizes and positions are in device-independent pixels.
 | `AutoHideMenuBar` | shows the menu bar only while the keyboard is in it, from Alt or F10 (Linux, Windows), see [the menu bar](menus.md#the-menu-bar) |
 | `Parent`, `Modal` | a child window, modal to its parent, a [flyout](#a-dialog-over-a-flyout) too; for one placed next to a part of it, see [flyouts](#flyouts) |
 | `Panel` | the window of a launcher or a quick entry, floating above all apps, see [panels](#panels) |
-| `Page` | the options of the window's [page](#pages): its preload script, trusted origins, web inspector, zoom, user agent and its suffix, swipes and pinches |
+| `Page` | the options of the window's [page](#pages): its preload script, trusted origins, web inspector, zoom, user agent and its suffix, swipes, pinches and the user's zoom |
 
 ## Show windows without flashing
 
@@ -626,6 +626,8 @@ hides. Clicks in the panel leave it active too.
 ```go
 mygo.App.SetActivationPolicy(mygo.ActivationPolicyAccessory) // no Dock icon (macOS)
 mygo.App.OnWindowAllClosed(func() {})                     // keep running with no window
+var quitting bool // a quit closes the panel
+mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { quitting = true })
 
 mygo.App.WhenReady(func() {
 	panel := mygo.NewWindow(mygo.WindowOptions{
@@ -639,10 +641,13 @@ mygo.App.WhenReady(func() {
 		URL:         "/launcher",
 	})
 	// Hide rather than close, so that it shows at once the next time:
-	// on Escape, Cmd-W or Alt-F4, and as the user goes elsewhere.
+	// on Escape, Cmd-W or Alt-F4, and as the user goes elsewhere. A quit
+	// closes it: a window kept open cancels the quit.
 	panel.OnClose(func(e *mygo.CloseEvent) {
-		e.PreventDefault()
-		panel.Hide()
+		if !quitting {
+			e.PreventDefault()
+			panel.Hide()
+		}
 	})
 	panel.OnBlur(panel.Hide)
 
@@ -768,7 +773,7 @@ slow work. Each `On…` method returns a function that removes the listener.
 | `OnResize`, `OnMove` | it was resized or moved |
 | `OnMaximize`, `OnUnmaximize`, `OnMinimize`, `OnRestore` | its state changed |
 | `OnEnterFullScreen`, `OnLeaveFullScreen` | it entered or left full screen |
-| `OnReadyToShow` | its first page is ready to be displayed, or its native UI drew its first frame |
+| `OnReadyToShow` | its first page is ready to be displayed or failed to load (unless an `OnDidFailLoad` listener loaded another page, which it then waits for), or its native UI drew its first frame |
 | `OnFileDrop` | files were dropped on its page, see [dropped files](frontend.md#dropped-files), or on native UI that did not take them, see [dropped files](ui/input.md#dropped-files) |
 
 Ask before closing a window with unsaved changes:
@@ -835,6 +840,7 @@ mygo.NewWindow(mygo.WindowOptions{
 | `PictureInPicture` | lets the page's videos go into picture in picture, see [picture in picture](#picture-in-picture) (macOS; WebView2 lets them already) |
 | `SwipeNavigation` | a horizontal swipe goes back and forward through the page's history, as in browsers, see [gestures](#swipes-and-pinches) |
 | `PinchZoom` | a pinch magnifies the page, as in browsers, see [gestures](#swipes-and-pinches) |
+| `ZoomControl` | the user zooms the page with Ctrl+wheel, as in browsers, see [the user's zoom](#the-users-zoom) |
 | `UserAgentSuffix` | appended to the user agent instead of replacing it, which `UserAgent` does, such as `"MyApp/1.2"`; it appends to `UserAgent` too, and `SetUserAgent` keeps it, and leading and trailing spaces are trimmed |
 | `ContentRules` | rules that block what the page loads and hide parts of it, see [blocking content](#blocking-content) |
 | `BackgroundThrottling` | `ThrottlingOn` (the web view's own) or `ThrottlingOff`, which keeps the page running while its window is hidden, minimized or covered, see [background pages](#background-pages) |
@@ -851,7 +857,7 @@ Page events, on `win.Page()`:
 |---|---|
 | `OnWillNavigate(func(e *mygo.NavigateEvent))` | the page is about to navigate, for example after a click on a link; `e.PreventDefault()` cancels it. `e.UserInitiated` says whether a user's gesture started it, a click on a link or a click whose handler sets `location.href`, or the page's script did on its own. Not called for `LoadURL` and its siblings, nor for the page's iframes, except on Linux before WebKitGTK 2.56, which tells no navigation's frame: there it is called for an iframe's too, but a `srcdoc` one's. |
 | `OnDidNavigate(func(url string))` | a navigation committed |
-| `OnDOMReady` | the page's DOM is ready (`DOMContentLoaded`) |
+| `OnDOMReady` | the page's DOM is ready (`DOMContentLoaded`), or the web view shows the page again as it was left, on Back or Forward |
 | `OnDidFinishLoad` | the page finished loading |
 | `OnDidFailLoad(func(err *mygo.LoadError))` | the page failed to load |
 | `OnPageTitleUpdated(func(e *mygo.TitleEvent))` | the page's `<title>` changed; preventing the event keeps the window title as it is |
@@ -902,6 +908,36 @@ size, as it is.
 
 WebKitGTK and WebView2 have pinches, and WebView2 swipes, on by default:
 MyGo turns them off unless the page asks for them.
+
+### The user's zoom
+
+A page zooms as the app zooms it, with `ZoomFactor` and `SetZoomFactor` or
+the zoom items of a View menu (`RoleZoomIn`, `RoleZoomOut` and
+`RoleResetZoom`, the default menu's on macOS too), and not as the user
+does in a browser, as desktop apps do: an app whose pages are its UI keeps
+them at the size it laid them out at. `ZoomControl` lets the user zoom the
+page too, for a window's page and a [web view's](ui/web-view.md) alike:
+
+```go
+mygo.NewWindow(mygo.WindowOptions{
+	URL:  "/manual/",
+	Page: mygo.PageOptions{ZoomControl: true},
+})
+```
+
+| | `ZoomControl` |
+|---|---|
+| Windows | Ctrl+wheel, and Ctrl+Plus and Ctrl+Minus where WebView2's own keys are on, which come with the [inspector](frontend.md#the-web-inspector) (`IsZoomControlEnabled`) |
+| macOS | nothing: WKWebView zooms on no key or wheel itself |
+| Linux | nothing: WebKitGTK zooms on no key or wheel itself |
+
+`Page.ZoomFactor` reports the user's zoom, and the page hears it as it
+hears `SetZoomFactor`'s. WebView2 keeps a zoom per site: as the page
+navigates to another site, it may put back the one that site had, and
+`ZoomFactor` follows that too.
+
+Before `ZoomControl`, WebView2 let the user zoom every page with Ctrl+wheel:
+a page that should still zoom so sets it.
 
 ### The theme color
 

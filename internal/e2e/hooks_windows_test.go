@@ -364,12 +364,21 @@ func popupItemEnabled(label string) (enabled, ok bool) {
 func pressKey(*mygo.Window, uint16, string) bool { return false }
 
 func pressKeyComposing(*mygo.Window, uint16, string, string, string) bool { return false }
+func pressKeyComposingOver(*mygo.Window, uint16, string, string, string, int, int) bool {
+	return false
+}
 
 // dragFiles drags files from another application to (x, y) of a window of
 // native UI and drops them, as OLE does, waiting for the target to answer.
 func dragFiles(w *mygo.Window, x, y float64, paths []string) (dropped, ok bool) {
 	mygo.RunOnMain(func() { dropped = win.TestDragFiles(w.NativeHandle(), x, y, paths) })
 	return dropped, true
+}
+
+// OLE routes a drag to a window's drop target as a whole, whose answer does
+// not follow the pointer within it.
+func dropFilesFrom(*mygo.Window, float64, float64, float64, float64, []string) (bool, bool, bool) {
+	return false, false, false
 }
 
 // pressTab presses Tab, with Shift when back, on the keyboard, in the
