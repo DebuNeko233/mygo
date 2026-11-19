@@ -60,6 +60,10 @@ type Rectangle struct{ X, Y, Width, Height int }
 // WindowOptions configures NewWindow. The zero value is a visible,
 // resizable 800x600 window centered on screen.
 type WindowOptions struct {
+	// OwnScene opens the window as a window of the system's own on iPad, beside
+	// the app's others, which ios.multipleWindows in mygo.json allows. Elsewhere
+	// it's a window as any: on a phone or Android, over the one before.
+	OwnScene bool
 	// Title of the window. Defaults to the application name. The title
 	// follows the page's <title> unless an OnPageTitleUpdated listener
 	// prevents it.
@@ -394,6 +398,10 @@ type Window struct {
 	// once it settled. Main thread only.
 	stateKey   string
 	stateTimer *time.Timer
+	// devSlot is the place, from 1, of a window without a stateKey in
+	// what mygo dev keeps of the windows (restoreDevWindow), 0 for none.
+	// Main thread only.
+	devSlot int
 
 	// trusted reports whether the current page may call bound methods.
 	// Main thread only.
@@ -647,6 +655,7 @@ func newWindow(opts WindowOptions, bg, tint *background, native uintptr, flyout 
 	popts := w.platformOptions(&opts)
 	popts.BackgroundColor = w.backgroundColor()
 	popts.Surface = opts.Content != nil
+	popts.OwnScene = opts.OwnScene
 	if opts.Transparent {
 		// Backends keep transparent windows clear; so do theme changes.
 		w.background = nil
@@ -668,6 +677,8 @@ func newWindow(opts WindowOptions, bg, tint *background, native uintptr, flyout 
 	w.devTools = popts.DevTools
 	if w.stateKey != "" {
 		restoreWindowState(w.stateKey, popts)
+	} else {
+		w.restoreDevWindow(popts, native)
 	}
 	w.title = popts.Title
 	if s := opts.Page.Session; s != nil && opts.Content == nil {
@@ -689,7 +700,7 @@ func newWindow(opts WindowOptions, bg, tint *background, native uintptr, flyout 
 		// reaches it in between.
 		nw.SetIgnoreMouseEvents(true)
 	}
-	if w.stateKey != "" {
+	if w.stateKey != "" || w.devSlot > 0 {
 		w.initState(popts)
 	}
 	if w.content {
@@ -770,6 +781,7 @@ func (w *Window) platformOptions(o *WindowOptions) *platform.WindowOptions {
 		Autoplay:               po.Autoplay == AutoplayAllow,
 		SwipeNavigation:        po.SwipeNavigation,
 		PinchZoom:              po.PinchZoom,
+		ZoomControl:            po.ZoomControl,
 		Schemes:                Protocol.schemes(),
 		Panel:                  o.Panel,
 		PictureInPicture:       po.PictureInPicture,
@@ -2459,6 +2471,10 @@ func (h *windowHandler) AudibleChanged(audible bool) {
 	h.w.audible = audible
 	fire1(&h.w.onAudibleChanged, audible)
 }
+
+// ZoomChanged tells the page and its window of a zoom the user chose, as
+// SetZoomFactor does of the app's.
+func (h *windowHandler) ZoomChanged() { h.w.zoomChanged() }
 
 func (h *windowHandler) CaptureStateChanged(kind platform.CaptureKind, state platform.CaptureState) {
 	k := CaptureKind(kind)
