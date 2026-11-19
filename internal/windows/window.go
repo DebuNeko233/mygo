@@ -34,6 +34,9 @@ type window struct {
 	pending      []pendingCall
 	webViewErr   error
 	webViewFails int // creations that failed
+	// creating is true from the time WebView2 was asked for the controller
+	// until it answered.
+	creating bool
 	// scriptIDs are the ids of the scripts added to every document, which
 	// SetUserScripts removes; scriptGen counts the replacements, so an id
 	// that arrives after one is removed at once.
@@ -68,6 +71,8 @@ type window struct {
 	topEdge                uintptr     // the window over the top resize border of one without a caption (topedge.go), or 0
 	noRedirect             bool        // no redirection bitmap, for a material behind the page
 	fullScreen             bool
+	fullByApp              bool     // the app asked for the full screen; the page's own does not end it
+	pageFull               bool     // the page has an element full screen (webview.go)
 	reframing              bool     // SetFullScreen is changing the frame
 	showMaximized          bool     // on the first show (WindowOptions.Maximized)
 	dropped                []string // DroppedFiles
@@ -141,6 +146,7 @@ type window struct {
 	programmatic bool
 	loading      bool
 	zoom         float64
+	userZoom     float64   // on ARM64, the controller's zoom, which the user's Ctrl+wheel sets, under the CSS one (abi_arm64.go); 0 for 1
 	muted        bool      // SetAudioMuted, which setUp applies to a web view made later
 	mutePut      time.Time // when the IsMuted put in flight was made, zero for none
 	devTools     bool
@@ -1158,7 +1164,31 @@ func (w *window) ShowInactive() {
 		procShowWindow.Call(w.hwnd, swShowMaximized)
 		return
 	}
+	if !theBackend.background {
+		procShowWindow.Call(w.hwnd, swShowNoActivate)
+		return
+	}
+	// Ordered in before it shows, so that it never shows over that
+	// window, and again after, in case showing it raised it.
+	w.behindForeground()
 	procShowWindow.Call(w.hwnd, swShowNoActivate)
+	w.behindForeground()
+}
+
+// behindForeground puts the window right behind the foreground window,
+// over the others, when another app's window is in the foreground, as the
+// editor of a user who saves while mygo dev -background runs the app: a
+// window shown without activating would show over it. Not behind a
+// topmost window, which would make it topmost too.
+func (w *window) behindForeground() {
+	fg, _, _ := procGetForegroundWindow.Call()
+	if fg == 0 || fg == w.hwnd || windowLong(fg, gwlExStyle)&wsExTopmost != 0 {
+		return
+	}
+	if t, _, _ := procGetWindowThreadProcessId.Call(fg, 0); uint32(t) == currentThreadID() {
+		return // the app's own window
+	}
+	procSetWindowPos.Call(w.hwnd, fg, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoActivate)
 }
 func (w *window) Hide() { procShowWindow.Call(w.hwnd, swHide) }
 
@@ -1257,9 +1287,29 @@ func (w *window) Restore() {
 
 // SetFullScreen takes the window's frame and menu bar away, or gives them
 // back. Each step sizes the window again: it is laid out once, at the end.
-func (w *window) SetFullScreen(v bool) {
+// The page's own full screen, if it has one, follows the window out.
+func (w *window) SetFullScreen(v bool) { w.setFullScreen(v, true) }
+
+// setFullScreen is SetFullScreen with byApp telling who asked: a window
+// the app made full screen stays so when the page comes out of its own
+// full screen, as AppKit leaves macOS windows that the user made full
+// screen while a video played in one. The page driving the window in and
+// out of full screen is webview.go's pageFullScreenChanged.
+func (w *window) setFullScreen(v bool, byApp bool) {
+	if v && byApp {
+		// Also when the page has the window full screen already: the app
+		// asking for it keeps it so after the page leaves its own.
+		w.fullByApp = true
+	}
 	if v == w.fullScreen {
 		return
+	}
+	if !v {
+		if !byApp && w.fullByApp {
+			return // the app has this window full screen; the page leaving its own is no leave
+		}
+		w.fullByApp = false
+		w.leavePageFullScreen()
 	}
 	if w.inMenu {
 		procEndMenu.Call() // its menus come from a bar that comes or goes

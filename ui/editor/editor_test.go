@@ -746,6 +746,58 @@ func TestCodeEditorFoldImports(t *testing.T) {
 	}
 }
 
+// TestSelectSmallerAfterEdit checks that the selections Select Larger grew
+// move with the text edited since, as the carets do: Select Smaller takes
+// them back to where their text went, not to where it was.
+func TestSelectSmallerAfterEdit(t *testing.T) {
+	// Typed over the word selected: the caret is after the letter, not
+	// between its bytes, where the next letter typed would break it.
+	ct := newEditorTest(t, "", "a|b cd")
+	ct.run(SelectLarger)
+	ct.want("[ab] cd")
+	ct.typ("é")
+	ct.run(SelectSmaller)
+	ct.want("é| cd")
+	ct.typ("z")
+	ct.want("éz| cd")
+	// The text is shorter than the caret was far.
+	ct = newEditorTest(t, "", "abc|def")
+	ct.run(SelectLarger)
+	ct.want("[abcdef]")
+	ct.typ("x")
+	ct.run(SelectSmaller)
+	ct.want("x|")
+	// An edit of the app's before the selection.
+	ct = newEditorTest(t, "", "one two thr|ee")
+	ct.run(SelectLarger)
+	ct.want("one two [three]")
+	ct.st.Buffer.Edit(Edit{Start: 0, End: 4})
+	ct.run(SelectSmaller)
+	ct.want("two thr|ee")
+}
+
+// TestDragFollowsEdits checks that a drag goes on from where its start
+// went with the text edited since the press, as under a reply that
+// streams in, and that the carets an Alt drag keeps go with it too.
+func TestDragFollowsEdits(t *testing.T) {
+	ct := newEditorTest(t, "", "aé\nxyz")
+	ct.tt.Press(300, 5) // past the end of the first line
+	ct.want("aé|\nxyz")
+	ct.st.Buffer.Edit(Edit{Start: 0, End: 1})
+	ct.tt.Move(0, 5)
+	ct.want("[é]\nxyz")
+	ct.tt.Release(0, 5)
+
+	ct = newEditorTest(t, "", "aé|\nxyz")
+	y := 5 + ct.st.ed.view.lineHeight
+	// The editor takes these itself: a Tester's press holds no modifier.
+	ct.st.ed.input(ui.InputEvent{Kind: ui.InputPointerDown, X: 300, Y: y, Clicks: 1, Mods: ui.Alt})
+	ct.want("aé|\nxyz|")
+	ct.st.Buffer.Edit(Edit{Start: 0, End: 1})
+	ct.st.ed.input(ui.InputEvent{Kind: ui.InputPointerMove, Y: y, Mods: ui.Alt})
+	ct.want("é|\n[xyz]")
+}
+
 func TestCodeEditorWords(t *testing.T) {
 	ct := newEditorTest(t, "", "|fooBar_baz qux")
 	ct.run(MoveSubwordRight)
@@ -1179,5 +1231,41 @@ func TestHeightsZeroValue(t *testing.T) {
 	}
 	if got := h.lineAt(10); got != 0 {
 		t.Fatalf("lineAt of the zero heights = %d, want 0", got)
+	}
+}
+
+// A caret alone cuts its line even when it is the last, which has no newline
+// of its own: the line goes, and the caret lands at the end of the one above.
+func TestCodeEditorCutLastLine(t *testing.T) {
+	ct := newEditorTest(t, "", "one\ntw|o")
+	ct.key(ui.Cmd, ui.KeyX)
+	ct.want("one|")
+	if got := ct.tt.Clipboard(); got != "two\n" {
+		t.Errorf("cut %q", got)
+	}
+	// An empty last line goes too, rather than cutting nothing.
+	ct = newEditorTest(t, "", "one\n|")
+	ct.key(ui.Cmd, ui.KeyX)
+	ct.want("one|")
+	// The only line is emptied, with nothing above to take.
+	ct = newEditorTest(t, "", "o|ne")
+	ct.key(ui.Cmd, ui.KeyX)
+	ct.want("|")
+	// A line in the middle still takes its own newline.
+	ct = newEditorTest(t, "", "one\nt|wo\nthree")
+	ct.key(ui.Cmd, ui.KeyX)
+	ct.want("one\n|three")
+}
+
+// Comment toggling on blank lines has nothing to uncomment, so it comments.
+func TestCodeEditorToggleCommentBlankLine(t *testing.T) {
+	ct := newEditorTest(t, "sql", "select 1;\n|")
+	ct.key(ui.Cmd, ui.KeySlash)
+	if got := ct.st.Buffer.String(); got != "select 1;\n-- " {
+		t.Fatalf("a blank line gave %q", got)
+	}
+	ct.key(ui.Cmd, ui.KeySlash)
+	if got := ct.st.Buffer.String(); got != "select 1;\n" {
+		t.Errorf("toggled back to %q", got)
 	}
 }

@@ -359,7 +359,8 @@ modifiers anywhere in the window, and `Element.Shortcut` only while the
 element or one inside it has the focus, which comes first. A focused button
 keeps Enter and Space, a link Enter, and a toggle Space, so
 `c.Shortcut(0, ui.KeyEnter)` presses a dialog's default button wherever
-else the focus is.
+else the focus is. A text input keeps Enter as well: a single-line one
+reports it with [`Submitted`](text-input.md), a text area breaks the line.
 
 ```go
 if c.Shortcut(ui.Cmd, ui.KeyS) {
@@ -392,7 +393,7 @@ GTK flags no repeat, so on Linux a press of a key held already, with no
 release between, is one, as X11 (with detectable auto-repeat, which GDK
 turns on) and Wayland send them.
 
-`ui.Cmd` is Command on macOS and Ctrl elsewhere. `ui.KeyBack` and
+`ui.Cmd` is Command on macOS and iOS, and Ctrl elsewhere. `ui.KeyBack` and
 `ui.KeyForward` are the back and forward buttons of a mouse and the keys of
 keyboards that have them, which a [router](navigation.md) takes. Shortcuts
 of [menus](../menus.md) still work, and the Edit menu's roles (cut, copy,
@@ -409,7 +410,7 @@ layout, stands for the key at its place on a US keyboard, so Cmd+ы is
 `ui.KeyS`. Typed without those modifiers, it stays text.
 
 A focused text input takes the editing keys of the platform first: on
-macOS, Option and Command with the arrows and Backspace, and Control with
+macOS and iOS, Option and Command with the arrows and Backspace, and Control with
 A, E, B, F, N, P, D, H and K, as in other Mac apps; elsewhere, it leaves Alt
 and the arrows, which go back and forward, and the function keys.
 
@@ -514,12 +515,15 @@ tells a touchpad, which scrolls by pixels, from a mouse wheel's notches.
 browsers report pinches; Windows sends them as scrolling with Ctrl held,
 so there a touchpad's scrolling with Ctrl comes as `ui.InputZoom` too,
 while a mouse wheel's notches stay `ui.InputScroll` with `ui.Ctrl` in
-`Mods`. On Linux a touchscreen scrolls and pinches as a touchpad does: a
-finger dragging scrolls the content under it along with it (`Precise`),
-two fingers pinch, between them, and scroll as they move together, a tap
-clicks and a finger held still for half a second right-clicks. What the
-element takes no scroll container around it scrolls with; what it
-leaves, by returning false, they do.
+`Mods`. On Linux and Windows a touchscreen scrolls and pinches as a
+touchpad does: a finger dragging scrolls the content under it along with
+it (`Precise`), two fingers pinch, between them, and scroll as they move
+together, a tap clicks and a finger held still for half a second
+right-clicks. What the element takes no scroll container around it
+scrolls with; what it leaves, by returning false, they do. On Windows a
+finger landing on a [`DragWindow`](windows.md) element moves the window,
+as the mouse does, unless the element, or a scroll container around it,
+can scroll.
 
 ```go
 ui.Box(c).Fill().HandleInput(func(ev ui.InputEvent) bool {
