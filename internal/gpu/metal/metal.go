@@ -1732,6 +1732,9 @@ func (r *Renderer) Ready(wake func()) bool {
 	return false
 }
 
+// ReadyOnMainThread reports the callback affinity of Ready on desktops.
+func (*Renderer) ReadyOnMainThread() bool { return runtime.GOOS != "ios" }
+
 func or(a, b id) id {
 	if a != 0 {
 		return a

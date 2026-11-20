@@ -179,6 +179,7 @@ type windowHost struct {
 	waitingOn    displayWaiter
 	waitedAt     time.Time
 	wake         func()
+	wakeOnMain   func()
 	displayReady func()
 	// refresh paces the frames drawn in memory on a surface that shows
 	// them at once (platform.RefreshSurface); nil until one is.
@@ -403,8 +404,19 @@ func (h *windowHost) waitDisplay(at time.Time) bool {
 			p.FrameNow()
 		}
 		h.wake = func() { h.conn.Post(h.displayReady) }
+		h.wakeOnMain = func() {
+			if !h.framing && !h.rt.inFrame {
+				h.displayReady()
+			} else {
+				h.conn.Post(h.displayReady)
+			}
+		}
 	}
-	if w.Ready(h.wake) {
+	wake := h.wake
+	if main, ok := w.(interface{ ReadyOnMainThread() bool }); ok && main.ReadyOnMainThread() {
+		wake = h.wakeOnMain
+	}
+	if w.Ready(wake) {
 		return false
 	}
 	h.waiting, h.waitingOn, h.waitedAt = true, w, at

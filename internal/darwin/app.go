@@ -204,7 +204,11 @@ func (b *Backend) Quit() {
 func (b *Backend) Signal() {
 	if b.source != 0 {
 		purego.SyscallN(cfRunLoopSourceSignalFn, b.source)
-		purego.SyscallN(cfRunLoopWakeUpFn, b.mainLoop)
+		// Signaling a source is enough when this is already its thread;
+		// a nested run loop observes the pending source before it waits.
+		if !b.IsMainThread() {
+			purego.SyscallN(cfRunLoopWakeUpFn, b.mainLoop)
+		}
 	}
 }
 
