@@ -104,7 +104,7 @@ func (p *Painter) paintEffect(e *node) bool {
 	// (layerScale), ls pixels a DIP; an effect's and a blur's at the
 	// window's.
 	q, still := float32(1), false
-	if e.cache != nil {
+	if e.cache != nil && e.effect == nil {
 		q, still = p.layerScale(e, from)
 	}
 	ls := s * q

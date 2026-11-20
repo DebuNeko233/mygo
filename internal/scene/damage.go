@@ -27,16 +27,17 @@ type Differ struct {
 
 	// valid tells that the last scene, of w×h pixels, is remembered to
 	// compare the next with.
-	valid   bool
-	w, h    int
-	clear   Color
-	text    TextParams
-	ops     []Op
-	glyphs  []Glyph
-	stops   []Stop
-	effects []EffectOp
-	wide    []WideColors
-	words   []uint32
+	valid          bool
+	w, h           int
+	clear          Color
+	text           TextParams
+	ops            []Op
+	glyphs         []Glyph
+	stops          []Stop
+	effects        []EffectOp
+	effectVersions [][4]uint64
+	wide           []WideColors
+	words          []uint32
 	// bounds is where each operation of the last scene drew, next where
 	// those of the scene Diff was given draw; versions has the versions of
 	// the last scene's images.
@@ -243,11 +244,31 @@ func (d *Differ) same(i int, s *Scene, j int, maskRects, colorRects []image.Rect
 			return false
 		}
 	case OpEffect:
-		if int(sa) >= len(d.effects) || int(sb) >= len(s.Effects) || !d.effects[sa].Same(&s.Effects[sb]) {
+		if int(sa) >= len(d.effects) || int(sb) >= len(s.Effects) || !d.sameEffect(int(sa), &s.Effects[sb]) {
 			return false
 		}
 	}
 	return true
+}
+
+// sameEffect compares owned shader words and the versions of its images. Video
+// and external GPU textures stay conservative because their pixels can change
+// independently of a paint operation.
+func (d *Differ) sameEffect(index int, current *EffectOp) bool {
+	previous := d.effects[index]
+	next := *current
+	for slot, img := range next.Images {
+		if previous.Images[slot] != img {
+			return false
+		}
+		if img != nil {
+			if img.GPU != nil || img.Surface != nil || img.Version() != d.effectVersions[index][slot] {
+				return false
+			}
+		}
+		previous.Images[slot], next.Images[slot] = nil, nil
+	}
+	return previous.Same(&next)
 }
 
 // sameWide reports whether the colors outside the sRGB gamut that wa
@@ -456,6 +477,16 @@ func (d *Differ) Remember(s *Scene) {
 		clear(d.effects[len(s.Effects):])
 	}
 	d.effects = append(d.effects[:0], s.Effects...)
+	d.effectVersions = d.effectVersions[:0]
+	for i := range s.Effects {
+		var versions [4]uint64
+		for slot, img := range s.Effects[i].Images {
+			if img != nil {
+				versions[slot] = img.Version()
+			}
+		}
+		d.effectVersions = append(d.effectVersions, versions)
+	}
 	// The uniforms' and the quads' words, which the scene reuses next
 	// frame (Words), kept apart.
 	d.words = d.words[:0]

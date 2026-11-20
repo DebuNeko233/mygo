@@ -47,6 +47,13 @@ func (cv *Canvas) Size() (w, h int) { return cv.img.W, cv.img.H }
 // clips. Drawn, the canvas shows it from this frame on.
 func (cv *Canvas) Draw(p *Painter, fn func(cp *Painter)) { cv.draw(p, 1, fn) }
 
+// DrawCached evaluates fn as Draw does, and reuses the canvas's rendered pixels
+// when its operations, shader inputs and referenced image versions are unchanged.
+// fn still runs on every call; animations must keep requesting their frames.
+func (cv *Canvas) DrawCached(p *Painter, fn func(cp *Painter)) {
+	keptLayer{}.draw(cv, p, 1, cv.img.W, cv.img.H, fn)
+}
+
 // draw is Draw with scale pixels a DIP, the units fn paints in.
 func (cv *Canvas) draw(p *Painter, scale float32, fn func(cp *Painter)) {
 	cv.drawPart(p, scale, cv.img.W, cv.img.H, fn)
@@ -57,6 +64,8 @@ func (cv *Canvas) draw(p *Painter, scale float32, fn func(cp *Painter)) {
 // backdrops end at their edge (scene.Scene.Drawn), as in a canvas of that
 // size.
 func (cv *Canvas) drawPart(p *Painter, scale float32, w, h int, fn func(cp *Painter)) {
+	// A regular draw replaces the state remembered by DrawCached.
+	cv.cache = nil
 	cv.paint(p, scale, w, h, fn)
 	cv.drawn(p)
 }

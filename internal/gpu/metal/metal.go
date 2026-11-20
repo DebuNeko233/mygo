@@ -409,7 +409,9 @@ type formatState struct {
 	backdrop           [2]texture
 	// clear is a texel of the frame's color, cleared to it, which a frame
 	// drawn in part copies over what it redraws (see clearArea).
-	clear id
+	clear      id
+	clearColor scene.Color
+	clearValid bool
 	// effects are the pipelines of the effects drawn, made as first drawn.
 	effects map[*scene.Effect]*effectPipe
 }
@@ -1535,6 +1537,9 @@ func (r *Renderer) begin(cb, target id, load uintptr, s *scene.Scene, b *gpu.Bui
 // the color to the target's format as it does then.
 func (r *Renderer) clearTexel(cb id, s *scene.Scene) {
 	f := r.cur
+	if f.clear != 0 && f.clearValid && f.clearColor == s.Clear {
+		return
+	}
 	if f.clear == 0 {
 		if f.clear = r.newTexture(1, 1, f.format, usageRenderTarget|usageShaderRead, nil, 0); f.clear == 0 {
 			return
@@ -1548,6 +1553,7 @@ func (r *Renderer) clearTexel(cb id, s *scene.Scene) {
 	c := s.Clear.Premul(1)
 	msgSetClearColor(ca, sel("setClearColor:"), mtlClearColor{float64(c[0]), float64(c[1]), float64(c[2]), float64(c[3])})
 	send(send(cb, "renderCommandEncoderWithDescriptor:", rpd), "endEncoding")
+	f.clearColor, f.clearValid = s.Clear, true
 }
 
 // clearArea encodes, into the frame's pass begun with its target loaded,
@@ -1805,6 +1811,7 @@ func (r *Renderer) render(s *scene.Scene) error {
 	}
 	r.diff.Wide = r.wide
 	damage, known := r.diff.Diff(s)
+
 	if known && len(damage) == 0 && !sync {
 		r.redrew = redrewNothing
 		return nil
