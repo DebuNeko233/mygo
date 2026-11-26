@@ -146,7 +146,7 @@ func shQuote(s string) string {
 
 var installScriptTemplate = template.Must(template.New("").Funcs(template.FuncMap{"q": shQuote, "phrase": commandsPhrase}).Parse(`#!/bin/sh
 # Installs {{.Title}} for the current user, without root. On Linux: the app in
-# ~/.local/{{.Slug}}.app{{with .Commands}}, {{phrase .}} in ~/.local/bin,{{end}} and its entry
+# ~/.local/{{.LinuxFolder}}{{with .Commands}}, {{phrase .}} in ~/.local/bin,{{end}} and its entry
 # in the applications menu.{{if .PublicKey}} On macOS: the latest version, its signature
 # checked, in /Applications, or ~/Applications when it cannot write there.{{end}}
 # Made by mygo build.

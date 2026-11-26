@@ -195,7 +195,7 @@ func shArray(words []string) string {
 // writePKGBUILD writes into stage a PKGBUILD from which makepkg packages
 // the app for Arch Linux, out of archive, its archive in stage, with the
 // files of the Debian package of writeDeb, which app, the executable name
-// and the files next to it, are too: the app in /opt/<name>, a link in
+// and the files next to it, are too: the app in /opt/<installDirName>, a link in
 // /usr/bin for each name of linux.command, its desktop entry, its icons
 // and its MIME package. The icons in the sizes of the Debian package are
 // written next to it, as sources: the archive holds the original. It

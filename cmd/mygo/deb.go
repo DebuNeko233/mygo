@@ -154,7 +154,7 @@ func debVersion(v string) string {
 }
 
 // writeDeb packages the Linux app in stage, the executable name and the
-// files next to it, as a Debian package: the app in /opt/<name>, a link in
+// files next to it, as a Debian package: the app in /opt/<installDirName>, a link in
 // /usr/bin for each name of linux.command, its desktop entry and icons. It
 // returns the package's path.
 func writeDeb(c *Config, stage, name, goarch string, app []string) (string, error) {
@@ -275,7 +275,7 @@ func writeDeb(c *Config, stage, name, goarch string, app []string) (string, erro
 }
 
 // optEntries returns the entries of app, the executable name and the files
-// next to it, that packages install in /opt/<name>: all but the desktop
+// next to it, that packages install in /opt/<installDirName>: all but the desktop
 // entry, the icon and the MIME package, which they install where desktops
 // look for them.
 func optEntries(app []string, name string) []string {
