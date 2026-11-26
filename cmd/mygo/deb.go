@@ -21,6 +21,12 @@ import (
 
 // Linux configures Linux packaging.
 type Linux struct {
+	// InstallDirName names the application directory, independently of Slug:
+	// /opt/<installDirName> in packages and ~/.local/<installDirName> in
+	// install.sh. Empty preserves /opt/<slug> and ~/.local/<slug>.app.
+	// Package names, executable names, desktop IDs and update assets keep Slug.
+	InstallDirName string `json:"installDirName"`
+
 	// Maintainer of the Debian and RPM packages and of the PKGBUILD,
 	// "Name <email>" (default: the author in package.json, else the app's
 	// name).
@@ -157,7 +163,7 @@ func writeDeb(c *Config, stage, name, goarch string, app []string) (string, erro
 		return "", fmt.Errorf("no Debian architecture for %s", goarch)
 	}
 	data := newTarGz()
-	opt := "opt/" + name
+	opt := "opt/" + c.linuxInstallDirName()
 	for _, dir := range []string{"opt", opt, "usr", "usr/share", "usr/share/applications"} {
 		data.dir(dir)
 	}

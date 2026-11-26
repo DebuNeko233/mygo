@@ -428,6 +428,14 @@ func (c *Config) validate() error {
 			return fmt.Errorf("windows.installDirName %q is the name of the app's folder, which %w", n, err)
 		}
 	}
+	if n := c.Linux.InstallDirName; n != "" {
+		if err := checkFolderName(n); err != nil {
+			return fmt.Errorf("linux.installDirName %q is the name of the app's folder, which %w", n, err)
+		}
+		if strings.ContainsAny(n, "$%`") {
+			return fmt.Errorf("linux.installDirName %q cannot hold $, %% or backticks in desktop paths", n)
+		}
+	}
 	if c.Slug != "" && !slugRe.MatchString(c.Slug) {
 		return fmt.Errorf("slug %q is not a slug (lower-case letters and digits, with single hyphens between them)", c.Slug)
 	}

@@ -144,6 +144,7 @@ See [Windows](distribution.md#windows).
 
 | Field | Default | |
 |---|---|---|
+| `installDirName` | `slug` in packages; `<slug>.app` in install.sh | application folder: `/opt/<installDirName>` in DEB/RPM/PKGBUILD, `~/.local/<installDirName>` in install.sh. Spaces are supported; a single portable folder component, without `$`, `%` or backticks. Package names, executables, desktop IDs and update assets still use `slug`. Existing registered install.sh locations are retained. |
 | `maintainer` | `author` in package.json, else `name` | `Name <email>`, the maintainer of the Debian and RPM packages and of the PKGBUILD |
 | `comment` | | a short description, for the desktop entry and the packages |
 | `categories` | `["Utility"]` | the categories of the desktop entry, which place it in application menus |

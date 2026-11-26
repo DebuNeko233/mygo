@@ -58,21 +58,27 @@ func writeInstallScript(c *Config, dir string) (string, error) {
 }
 
 func installScript(c *Config) string {
+	folder := c.linuxInstallDirName()
+	if strings.TrimSpace(c.Linux.InstallDirName) == "" {
+		folder += ".app"
+	}
+
 	data := map[string]string{
-		"Name":       c.Name,
-		"Title":      strings.Join(strings.Fields(c.Name), " "),
-		"Slug":       c.slug(),
-		"Commands":   strings.Join(c.Linux.Command, " "),
-		"Version":    c.Version,
-		"Bundle":     c.executableName() + ".app",
-		"Identifier": c.Identifier,
-		"Env":        envName(c.slug()),
-		"Releases":   "",
-		"API":        "",
-		"TagPrefix":  "",
-		"PublicKey":  "",
-		"WebKit":     "",
-		"Updates":    "",
+		"Name":        c.Name,
+		"Title":       strings.Join(strings.Fields(c.Name), " "),
+		"Slug":        c.slug(),
+		"LinuxFolder": folder,
+		"Commands":    strings.Join(c.Linux.Command, " "),
+		"Version":     c.Version,
+		"Bundle":      c.executableName() + ".app",
+		"Identifier":  c.Identifier,
+		"Env":         envName(c.slug()),
+		"Releases":    "",
+		"API":         "",
+		"TagPrefix":   "",
+		"PublicKey":   "",
+		"WebKit":      "",
+		"Updates":     "",
 	}
 	if c.Linux.webView() {
 		data["WebKit"] = "yes"
@@ -154,6 +160,7 @@ set -eu
 
 app_name={{q .Name}}
 name={{q .Slug}}
+linux_folder={{q .LinuxFolder}}
 # The commands in ~/.local/bin that run the app (linux.command), if any,
 # separated by spaces.
 command_names={{q .Commands}}
@@ -234,11 +241,20 @@ main() {
 }
 
 linux() {
-	app_dir="$HOME/.local/$name.app"
+	app_dir="$HOME/.local/$linux_folder"
 	bin_dir="$HOME/.local/bin"
 	data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
 	desktop_file="$data_home/applications/$name.desktop"
 	mime_file="$data_home/mime/packages/$name.xml"
+	# Updating an earlier install.sh installation keeps its registered location.
+	# A fresh install uses linux_folder; unrelated old directories stay untouched.
+	legacy_dir="$HOME/.local/$name.app"
+	if [ "$app_dir" != "$legacy_dir" ] && [ ! -e "$app_dir" ] &&
+		[ -x "$legacy_dir/$name" ] && [ -f "$desktop_file" ] &&
+		{ grep -Fxq "Exec=\"$legacy_dir/$name\"" "$desktop_file" ||
+		  grep -Fxq "Exec=\"$legacy_dir/$name\" %U" "$desktop_file"; }; then
+		app_dir="$legacy_dir"
+	fi
 	if [ "${1:-}" = --uninstall ]; then
 		uninstall
 		return
@@ -302,6 +318,11 @@ linux() {
 	mkdir -p "$staging"
 	tar -xzf "$archive" -C "$staging"
 	[ -f "$staging/$name" ] && [ -x "$staging/$name" ] || fail "$archive is not $app_name: it holds no $name"
+	# A directory chosen independently of the slug may already belong to
+	# something else. Only replace an installation containing this executable.
+	if [ -e "$app_dir" ] && { [ ! -d "$app_dir" ] || [ ! -x "$app_dir/$name" ]; }; then
+		fail "refusing to replace $app_dir: it is not an installation of $app_name"
+	fi
 	# Replace the app as a whole, so that no file of another version stays.
 	rm -rf "$app_dir"
 	mv "$staging" "$app_dir"
@@ -710,7 +731,7 @@ webkit_install_command() {
 }
 
 uninstall() {
-	[ -d "$app_dir" ] || fail "$app_name is not installed in $app_dir"
+	[ -d "$app_dir" ] && [ -x "$app_dir/$name" ] || fail "$app_name is not installed in $app_dir"
 	# Only what install.sh and the app made: a package of the system may
 	# install the same names. Links of names the app no longer has go too.
 	for link in "$bin_dir"/*; do

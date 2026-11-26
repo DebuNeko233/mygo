@@ -255,7 +255,7 @@ func writePKGBUILD(c *Config, stage, name, goarch string, app []string, archive 
 	b.WriteString("options=('!strip' '!debug')\n")
 	fmt.Fprintf(&b, "source=%s\nsha256sums=%s\n", shArray(sources), shArray(sums))
 
-	opt := `"$pkgdir"/` + shWord("opt/"+name)
+	opt := `"$pkgdir"/` + shWord("opt/"+c.linuxInstallDirName())
 	b.WriteString("\npackage() {\n\tcd \"$srcdir\"\n")
 	fmt.Fprintf(&b, "\tinstall -d %s\n", opt)
 	var entries []string
@@ -271,14 +271,14 @@ func writePKGBUILD(c *Config, stage, name, goarch string, app []string, archive 
 		b.WriteString("\tinstall -d \"$pkgdir\"/usr/bin\n")
 	}
 	for _, command := range c.Linux.Command {
-		fmt.Fprintf(&b, "\tln -s %s \"$pkgdir\"/%s\n", shWord("../../opt/"+name+"/"+name), shWord("usr/bin/"+command))
+		fmt.Fprintf(&b, "\tln -s %s \"$pkgdir\"/%s\n", shWord("../../opt/"+c.linuxInstallDirName()+"/"+name), shWord("usr/bin/"+command))
 	}
 	if mimePackage(c) != "" {
 		// Types the app defines, as the archive has them.
 		fmt.Fprintf(&b, "\tinstall -Dm644 %s \"$pkgdir\"/%s\n", shWord(name+".xml"), shWord("usr/share/mime/packages/"+name+".xml"))
 	}
 	// The entry runs the app by its path, as the Debian package's does.
-	desktop := linuxDesktopEntry(c, "/opt/"+name+"/"+name, name)
+	desktop := linuxDesktopEntry(c, "/opt/"+c.linuxInstallDirName()+"/"+name, name)
 	fmt.Fprintf(&b, "\tprintf '%%s' %s |\n\t\tinstall -Dm644 /dev/stdin \"$pkgdir\"/%s\n", shQuote(desktop), shWord("usr/share/applications/"+name+".desktop"))
 	for i, icon := range icons {
 		fmt.Fprintf(&b, "\tinstall -Dm644 %s \"$pkgdir\"/%s\n", shWord(sources[i+1]), shWord(icon.dir()+"/"+name+".png"))

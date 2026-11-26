@@ -115,7 +115,7 @@ func writeRpm(c *Config, stage, name, goarch string, app []string) (string, erro
 	builder := rpm.NewPackage()
 	files := rpmFiles{builder}
 
-	opt := "opt/" + name
+	opt := "opt/" + c.linuxInstallDirName()
 	files.dir(opt)
 
 	for _, entry := range optEntries(app, name) {

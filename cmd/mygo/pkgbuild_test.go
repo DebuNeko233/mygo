@@ -137,7 +137,14 @@ func TestArchLicenseAndURL(t *testing.T) {
 // TestPKGBUILD writes the PKGBUILD of an app, as a build does, and checks
 // its fields and checksums, then runs its package() as makepkg would and
 // compares what it installs with the Debian package.
+// Custom installation folders preserve package identity and executable references.
 func TestPKGBUILD(t *testing.T) {
+	for _, folder := range []string{"", "Nyago Music"} {
+		t.Run("folder="+folder, func(t *testing.T) { testPKGBUILDInstallFolder(t, folder) })
+	}
+}
+
+func testPKGBUILDInstallFolder(t *testing.T, folder string) {
 	root := t.TempDir()
 	img := image.NewNRGBA(image.Rect(0, 0, 300, 300))
 	for i := range img.Pix {
@@ -160,6 +167,7 @@ func TestPKGBUILD(t *testing.T) {
 		URLSchemes:       []string{"notepad"},
 		FileAssociations: []FileAssociation{{Ext: []string{"npad"}, Name: "Note <Pad>"}},
 	}
+	c.Linux.InstallDirName = folder
 	c.Linux.Comment = "Take $notes `now` & 'then'"
 	c.Linux.Command = commandNames{"note-pad", "np"}
 	c.Linux.Depends.Arch = []string{"libnotify"}

@@ -24,7 +24,15 @@ import (
 	"github.com/egoist/mygo/internal/update"
 )
 
+// Both legacy and independently named folders support install, update and uninstall.
 func TestInstallScript(t *testing.T) {
+	for _, folder := range []string{"", "Nyago Music"} {
+		t.Run("folder="+folder, func(t *testing.T) { testInstallScript(t, folder, false) })
+	}
+	t.Run("registered legacy folder", func(t *testing.T) { testInstallScript(t, "Nyago Music", true) })
+}
+
+func testInstallScript(t *testing.T, folder string, legacy bool) {
 	if runtime.GOOS == "windows" {
 		t.Skip("runs install.sh")
 	}
@@ -139,10 +147,40 @@ func TestInstallScript(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if legacy {
+		old := build(c, "0.9.0")
+		run(filepath.Join(old, "install.sh"))
+	}
+	c.Linux.InstallDirName = folder
+	if folder != "" && !legacy {
+		appDir = filepath.Join(home, ".local", folder)
+	}
 	local := build(c, "1.0.0")
 	script, _ := os.ReadFile(filepath.Join(local, "install.sh"))
 	if strings.Contains(string(script), "curl -fsSL http") {
 		t.Errorf("install.sh without updates tells to download it:\n%s", script)
+	}
+	// A custom directory belonging to something else survives both commands.
+	if folder != "" && !legacy {
+		if err := os.MkdirAll(appDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		marker := filepath.Join(appDir, "unrelated.txt")
+		if err := os.WriteFile(marker, []byte("keep"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{nil, {"--uninstall"}} {
+			out, err := exec.Command("sh", append([]string{filepath.Join(local, "install.sh")}, args...)...).CombinedOutput()
+			if err == nil {
+				t.Fatalf("replaced unrelated directory: %s", out)
+			}
+			if got, err := os.ReadFile(marker); err != nil || string(got) != "keep" {
+				t.Fatalf("unrelated content lost: %q %v", got, err)
+			}
+		}
+		if err := os.RemoveAll(appDir); err != nil {
+			t.Fatal(err)
+		}
 	}
 	// Without linux.command, no command, and none left from earlier
 	// scripts, which linked one named after the app.

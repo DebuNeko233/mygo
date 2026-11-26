@@ -237,7 +237,14 @@ func TestRPMLegacyDepends(t *testing.T) {
 
 // TestRPM packages the same app as the Debian package, checking metadata,
 // file modes, link targets and content digests with the system's RPM reader.
+// Custom installation folders preserve package identity and executable references.
 func TestRPM(t *testing.T) {
+	for _, folder := range []string{"", "Nyago Music"} {
+		t.Run("folder="+folder, func(t *testing.T) { testRPMInstallFolder(t, folder) })
+	}
+}
+
+func testRPMInstallFolder(t *testing.T, folder string) {
 	root := t.TempDir()
 	f, err := os.Create(filepath.Join(root, "icon.png"))
 	if err != nil {
@@ -254,6 +261,7 @@ func TestRPM(t *testing.T) {
 		URLSchemes:       []string{"notepad"},
 		FileAssociations: []FileAssociation{{Ext: []string{"npad"}, Name: "Note <Pad>"}},
 	}
+	c.Linux.InstallDirName = folder
 	c.Linux.Comment = "Take $notes `now` & 'then'"
 	c.Linux.Maintainer = "Jane Doe <jane@example.com>"
 	c.Linux.Command = commandNames{"note-pad", "np"}
@@ -319,7 +327,7 @@ func TestRPM(t *testing.T) {
 		mode, link, digest := hdr.Mode, "", ""
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if name != "/opt/note-pad" && !strings.HasPrefix(name, "/opt/note-pad/") {
+			if name != "/opt/"+c.linuxInstallDirName() && !strings.HasPrefix(name, "/opt/"+c.linuxInstallDirName()+"/") {
 				return
 			}
 			mode |= 0o40000

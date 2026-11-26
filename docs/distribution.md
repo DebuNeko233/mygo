@@ -633,6 +633,20 @@ name as the app id. Started by a command of another name than its slug, as
 `ma`, the app is the same program: its windows have that class, and its
 pages the data they kept, as `localStorage`.
 
+`linux.installDirName` sets the application folder independently of the slug.
+For example, `installDirName: "Nyago Music"` installs packages under
+`/opt/Nyago Music` and install.sh under `~/.local/Nyago Music`. Desktop
+commands and command links quote or preserve the path including spaces.
+The package name, executable, desktop entry and update assets keep their
+slug. Without the option, the existing defaults remain `/opt/<slug>` and
+`~/.local/<slug>.app`.
+
+When changing only this option, install.sh retains an existing executable
+in `~/.local/<slug>.app` if its registered desktop entry points there;
+updates and uninstall continue to use that location. New installations
+use the configured folder. An unrelated target directory is refused,
+not removed. Package managers track the changed payload paths themselves.
+
 Keep the slug of a released app. Its Linux files are named after it, and
 an update replaces the files of the same names: one to a version with
 another slug leaves the old executable in place, which the desktop entry
