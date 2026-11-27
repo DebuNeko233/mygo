@@ -489,6 +489,16 @@ func (h *windowHost) present(s *scene.Scene) {
 	if s.Width <= 0 || s.Height <= 0 {
 		return
 	}
+	if h.rt.hiddenAsked && h.occluded() {
+		// Hidden views still build once to release their resources. Keep
+		// that cleanup scene available to captures, but not on the surface:
+		// the window server may still be animating its last visible picture.
+		if !h.framing {
+			h.requestFrame()
+			h.unshown = true
+		}
+		return
+	}
 	if s.Background != h.background {
 		h.background = s.Background
 		if b, ok := h.conn.Surface.(platform.BackgroundSurface); ok {

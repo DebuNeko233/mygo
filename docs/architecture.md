@@ -3561,7 +3561,13 @@ either.
   `occluded`; once a view asked (`hiddenAsked`), `SurfaceHidden`, which
   the surfaces send as none of the window shows any more, builds one
   frame out of sight, as input does, for the view to stop its work, and
-  `SurfaceShown` one whether a frame was held or not.
+  `SurfaceShown` one whether a frame was held or not. A view that reads
+  `WindowHidden` can release graphics in that hidden frame. The host keeps
+  the resulting scene for captures but does not present it or replace the
+  native background while occluded: the window server can still animate
+  the last visible picture during a full-screen transition. The first frame
+  of a new window still presents, and showing it again presents fresh content.
+  Views that do not read visibility keep their input-driven presentation.
   The window gaining or losing the keyboard focus draws a frame only when
   the last frame read it (`windowFocus`, as a focus ring, a caret, a
   selection's color or a focused text input's IME state do): a window
