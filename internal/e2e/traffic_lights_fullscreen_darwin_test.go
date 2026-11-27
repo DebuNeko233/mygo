@@ -110,6 +110,12 @@ func TestTrafficLightsFullScreenRoundTrip(t *testing.T) {
 					return w.IsVisible() && firstFrameRevealed(w)
 				})
 				placed("before full screen")
+				// Window focus alone does not unhide an application. Finish
+				// application activation before requesting the window's focus;
+				// previous Space transitions can still be deactivating it.
+				mygo.App.Show()
+				mygo.App.Focus()
+				eventually(t, "application active before window focus", mygo.App.IsActive)
 				w.Focus()
 				eventually(t, "window focused before full screen", w.IsFocused)
 				w.SetFullScreen(true)
