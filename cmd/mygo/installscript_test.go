@@ -61,7 +61,8 @@ func testInstallScript(t *testing.T, folder string, legacy bool) {
 		"name": "My App",
 		"icon": "icon.png",
 		"urlSchemes": ["my-app"],
-		"fileAssociations": [{"ext": ["note"], "name": "Note"}]
+		"fileAssociations": [{"ext": ["note"], "name": "Note"}],
+		"linux": {"actions": [{"id": "PlayPause", "name": "Play/Pause", "args": ["--play-pause"]}]}
 	}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +125,7 @@ func testInstallScript(t *testing.T, folder string, legacy bool) {
 			}
 		}
 		entry, _ := os.ReadFile(filepath.Join(home, ".local", "share", "applications", "my-app.desktop"))
-		for _, line := range []string{"Name=My App", `Exec="` + appDir + `/my-app" %U`, "Icon=" + appDir + "/my-app.png", "MimeType=application/x-my-app-note;x-scheme-handler/my-app;"} {
+		for _, line := range []string{"Name=My App", `Exec="` + appDir + `/my-app" %U`, `Exec="` + appDir + `/my-app" --play-pause`, "Actions=PlayPause;", "Icon=" + appDir + "/my-app.png", "MimeType=application/x-my-app-note;x-scheme-handler/my-app;"} {
 			if !strings.Contains(string(entry), line+"\n") {
 				t.Errorf("the desktop entry has no %s:\n%s", line, entry)
 			}

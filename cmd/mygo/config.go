@@ -436,6 +436,24 @@ func (c *Config) validate() error {
 			return fmt.Errorf("linux.installDirName %q cannot hold $, %% or backticks in desktop paths", n)
 		}
 	}
+	for i, action := range c.Linux.Actions {
+		if !desktopActionIDRe.MatchString(action.ID) {
+			return fmt.Errorf("linux.actions[%d].id must contain only ASCII letters, digits and hyphens", i)
+		}
+		for _, previous := range c.Linux.Actions[:i] {
+			if previous.ID == action.ID {
+				return fmt.Errorf("linux.actions names %q twice", action.ID)
+			}
+		}
+		if action.Name == "" {
+			return fmt.Errorf("linux.actions[%d].name is required", i)
+		}
+		for _, value := range append([]string{action.Name, action.Icon}, action.Args...) {
+			if strings.ContainsFunc(value, unicode.IsControl) {
+				return fmt.Errorf("linux.actions[%d] cannot hold control characters", i)
+			}
+		}
+	}
 	if c.Slug != "" && !slugRe.MatchString(c.Slug) {
 		return fmt.Errorf("slug %q is not a slug (lower-case letters and digits, with single hyphens between them)", c.Slug)
 	}

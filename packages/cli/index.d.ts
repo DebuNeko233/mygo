@@ -376,6 +376,8 @@ export interface LinuxConfig {
   comment?: string;
   /** The categories of the desktop entry (default: `["Utility"]`). */
   categories?: string[];
+  /** Fixed desktop launcher actions. Each runs the app with its `args`; unsupported desktops may omit them. */
+  actions?: LinuxDesktopAction[];
   /** Packages the app needs besides GTK and WebKitGTK, by package format or as Debian packages mapped to Arch Linux and RPM where MyGo knows them. */
   depends?: string[] | LinuxDepends;
   /**
@@ -401,8 +403,20 @@ export interface LinuxConfig {
 }
 
 /**
- * Extra package dependencies for Linux packages, by package format.
+ * A fixed action in the application's Linux desktop launcher.
  */
+export interface LinuxDesktopAction {
+  /** Unique ASCII letters, digits and hyphens, used as the desktop action identifier. */
+  id: string;
+  /** Label shown in the launcher menu. */
+  name: string;
+  /** Arguments passed separately to the app (default: none). */
+  args?: string[];
+  /** Optional icon name from the desktop's icon theme, or an absolute path. */
+  icon?: string;
+}
+
+/** Extra package dependencies for Linux packages, by package format. */
 export interface LinuxDepends {
   /** Debian packages the app needs besides GTK and WebKitGTK. */
   deb?: string[];

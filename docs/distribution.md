@@ -605,6 +605,13 @@ project) check, as the app never loads it.
 the app.
 `comment` describes the app in its desktop entry and packages, and
 `categories` places it in application menus (`Utility` by default).
+`actions` adds fixed commands to launchers that support Freedesktop Desktop
+Actions, for example `[{id: "PlayPause", name: "Play/Pause", args: ["--play-pause"],
+icon: "media-playback-start"}]`. Each runs this app's executable, with separately
+quoted arguments. Combine it with `App.RequestSingleInstanceLock` and
+`App.OnSecondInstance` to send commands to a running player. Entries travel with
+the DEB, RPM, PKGBUILD, archive, install script and updates; no runtime overlay
+of the user's desktop entry is needed. Desktops may omit these actions.
 The app opens from the applications menu. `command` also gives it a
 command, `/usr/bin/my-app` from the packages and `~/.local/bin/my-app` from
 [`install.sh`](#the-install-script), or several, as `["my-app", "ma"]`,
