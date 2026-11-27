@@ -330,7 +330,8 @@ func testPKGBUILDInstallFolder(t *testing.T, folder string) {
 			}
 		}
 	}
-	for _, name := range []string{"opt/note-pad/note-pad", "opt/note-pad/-v", "usr/bin/np", "usr/share/applications/note-pad.desktop", "usr/share/mime/packages/note-pad.xml", "usr/share/icons/hicolor/512x512/apps/note-pad.png"} {
+	installedApp := "opt/" + c.linuxInstallDirName() + "/"
+	for _, name := range []string{installedApp + "note-pad", installedApp + "-v", "usr/bin/np", "usr/share/applications/note-pad.desktop", "usr/share/mime/packages/note-pad.xml", "usr/share/icons/hicolor/512x512/apps/note-pad.png"} {
 		if _, ok := installed[name]; !ok {
 			t.Errorf("package() does not install %s", name)
 		}
