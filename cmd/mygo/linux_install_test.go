@@ -30,6 +30,7 @@ func TestLinuxInstallDirValidation(t *testing.T) {
 // Real DEB/RPM payloads and desktop commands use a spaced folder without renaming their package.
 func TestLinuxInstallDirPackages(t *testing.T) {
 	c := &Config{Name: "Nyago Music", Slug: "nyago-music", Version: "1.0.0", Linux: Linux{InstallDirName: "Nyago Music", Command: commandNames{"nyago-music"}, WebView: new(false)}}
+	c.Linux.Actions = []LinuxDesktopAction{{ID: "PlayPause", Name: "Play/Pause", Args: []string{"--play-pause"}}}
 	stage := t.TempDir()
 	if err := os.WriteFile(filepath.Join(stage, "nyago-music"), []byte("#!/bin/sh\necho fixture\n"), 0755); err != nil {
 		t.Fatal(err)
@@ -54,6 +55,9 @@ func TestLinuxInstallDirPackages(t *testing.T) {
 	}
 	if got := files["usr/share/applications/nyago-music.desktop"]; !strings.Contains(got, "Exec=\"/opt/Nyago Music/nyago-music\"") {
 		t.Fatalf("unquoted desktop path: %s", got)
+	}
+	if got := files["usr/share/applications/nyago-music.desktop"]; !strings.Contains(got, "Actions=PlayPause;\n") || !strings.Contains(got, "Exec=\"/opt/Nyago Music/nyago-music\" --play-pause\n") {
+		t.Fatalf("DEB action does not run the installed app: %s", got)
 	}
 	if got := debMember(t, deb, "control.tar.gz")["control"]; !strings.HasPrefix(got, "Package: nyago-music\n") {
 		t.Fatal("directory override renamed the package")

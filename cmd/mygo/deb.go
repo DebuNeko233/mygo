@@ -36,6 +36,9 @@ type Linux struct {
 	Comment string `json:"comment"`
 	// Categories of the desktop entry (default Utility).
 	Categories []string `json:"categories"`
+	// Actions are fixed launcher commands in the desktop entry. Each starts
+	// the application's executable with Args, including before it is running.
+	Actions []LinuxDesktopAction `json:"actions"`
 	// Depends lists packages the app needs besides GTK and WebKitGTK, by
 	// package format or as a list of Debian packages mapped to Arch Linux
 	// and RPM where known.
@@ -57,6 +60,14 @@ type Linux struct {
 	// always written, as install.sh updates the app from it and the
 	// PKGBUILD packages it; an empty list writes it alone.
 	Formats []string `json:"formats"`
+}
+
+// LinuxDesktopAction is an action group of the Freedesktop desktop entry.
+type LinuxDesktopAction struct {
+	ID   string   `json:"id"`
+	Name string   `json:"name"`
+	Args []string `json:"args"`
+	Icon string   `json:"icon"`
 }
 
 // linuxFormats are the packages linux.formats chooses from.

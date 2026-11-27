@@ -148,6 +148,7 @@ See [Windows](distribution.md#windows).
 | `maintainer` | `author` in package.json, else `name` | `Name <email>`, the maintainer of the Debian and RPM packages and of the PKGBUILD |
 | `comment` | | a short description, for the desktop entry and the packages |
 | `categories` | `["Utility"]` | the categories of the desktop entry, which place it in application menus |
+| `actions` | none | desktop launcher actions: `{id, name, args?, icon?}`. Each runs the app's executable with separately quoted arguments; IDs are unique ASCII letters, digits and hyphens. Names, icons and arguments cannot contain control characters. Support and presentation depend on the desktop environment. |
 | `depends` | | packages the app needs besides GTK and WebKitGTK, by package format (`deb`, `rpm` and `arch`), or as a list of Debian packages mapped to the Arch Linux and RPM packages MyGo knows |
 | `webview` | `true` | `false` for an app that shows no web page, as one of native UI: the Debian and RPM packages and the PKGBUILD depend on GTK alone, and install.sh and `mygo doctor` do not ask for WebKitGTK |
 | `command` | none | a command that runs the app, or a list of names, as `["my-app", "ma"]`, which adds a short one: `/usr/bin/<command>` from the Debian and RPM packages and the PKGBUILD, `~/.local/bin/<command>` from install.sh, for each |

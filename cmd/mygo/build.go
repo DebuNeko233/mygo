@@ -698,6 +698,7 @@ func linuxDesktopEntry(c *Config, exec, icon string) string {
 	// of a file or URL land in Exec.
 	wmClass := filepath.Base(exec)
 	exec = desktopExec(exec)
+	actionExec := exec
 	categories := c.Linux.Categories
 	if len(categories) == 0 {
 		categories = []string{"Utility"}
@@ -744,6 +745,23 @@ func linuxDesktopEntry(c *Config, exec, icon string) string {
 	b.WriteString("StartupWMClass=" + wmClass + "\n")
 	if len(mime) > 0 {
 		b.WriteString("MimeType=" + strings.Join(mime, ";") + ";\n")
+	}
+	if len(c.Linux.Actions) > 0 {
+		b.WriteString("Actions=")
+		for _, action := range c.Linux.Actions {
+			b.WriteString(action.ID + ";")
+		}
+		b.WriteByte('\n')
+		for _, action := range c.Linux.Actions {
+			b.WriteString("\n[Desktop Action " + action.ID + "]\nName=" + desktopActionValue(action.Name) + "\nExec=" + actionExec)
+			for _, arg := range action.Args {
+				b.WriteString(" " + desktopExec(arg))
+			}
+			b.WriteByte('\n')
+			if action.Icon != "" {
+				b.WriteString("Icon=" + desktopActionValue(action.Icon) + "\n")
+			}
+		}
 	}
 	return b.String()
 }

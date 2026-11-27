@@ -879,7 +879,7 @@ func xdgDataHome() string {
 // desktopExec quotes path for the Exec key as execArg in internal/linux
 // does, only when it needs it.
 func desktopExec(path string) string {
-	if !strings.ContainsAny(path, " \t\"`$\\%") {
+	if path != "" && !strings.ContainsAny(path, " \t\n\"'`$\\%><~|&;*?#()") {
 		return path
 	}
 	return `"` + strings.NewReplacer(`\`, `\\\\`, `"`, `\\"`, "`", "\\\\`", `$`, `\\$`, `%`, `%%`).Replace(path) + `"`
