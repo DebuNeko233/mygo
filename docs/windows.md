@@ -50,7 +50,7 @@ on the screen. Sizes and positions are in device-independent pixels.
 | `Maximized`, `FullScreen` | creates it maximized or in full screen |
 | `Frameless` | no title bar and borders: the page draws them, see [custom title bars](frontend.md#custom-title-bars), or the [native UI](ui/windows.md) |
 | `TitleBarStyle` | hides the title bar but keeps the window buttons over the page, see [custom title bars](frontend.md#custom-title-bars), or over [native UI](ui/windows.md) |
-| `TrafficLightPosition` | moves the window buttons of a hidden title bar (macOS) |
+| `TrafficLightPosition` | positions the window buttons of a hidden title bar in windowed mode (macOS); AppKit owns their placement during full-screen transitions, and the custom position resumes once windowed again, including a cancelled entrance |
 | `TitleBarHeight` | the height of the title bar the page draws under the window buttons (Linux, Windows) |
 | `HideWindowButtons` | hides the window buttons of a hidden title bar, which keeps its resizing top edge, shadow and corners: the page draws its own and calls `Minimize`, `Maximize`, `Unmaximize` and `Close` |
 | `Transparent`, `Vibrancy` | a transparent window, and the material behind a transparent page or [native UI](ui/windows.md) (macOS, Windows 11 22H2): `VibrancyGlass` and `VibrancyGlassClear` are macOS 26's Liquid Glass. On Windows, a transparent window of native UI shows what is behind it where it draws nothing, and a window with a material has no menu bar: Alt and F10 open its menus in a popup |

@@ -43,7 +43,7 @@ mygo.NewWindow(mygo.WindowOptions{Title: "Inspector", Content: ui.View(app.view)
 | `Maximized`, `FullScreen` | 以最大化或全屏创建它 |
 | `Frameless` | 没有标题栏和边框：由页面绘制它们，见[自定义标题栏](frontend.md#自定义标题栏)，或[原生 UI](ui/windows.md) |
 | `TitleBarStyle` | 隐藏标题栏，但让窗口按钮浮在页面上方，见[自定义标题栏](frontend.md#自定义标题栏)，或浮在[原生 UI](ui/windows.md) 上方 |
-| `TrafficLightPosition` | 移动隐藏式标题栏的窗口按钮（macOS） |
+| `TrafficLightPosition` | 设置隐藏式标题栏在窗口模式下的按钮位置（macOS）；全屏过渡期间由 AppKit 布局，回到窗口模式后恢复自定义位置，包括取消进入全屏的情况 |
 | `TitleBarHeight` | 页面在窗口按钮下方绘制的标题栏高度（Linux、Windows） |
 | `HideWindowButtons` | 让隐藏式标题栏的窗口按钮不显示，并保留其可调整大小的上边缘、阴影和圆角：页面绘制自己的按钮，并调用 `Minimize`、`Maximize`、`Unmaximize` 和 `Close` |
 | `Transparent`, `Vibrancy` | 透明窗口，以及透明页面或[原生 UI](ui/windows.md) 背后的材质（macOS、Windows 11 22H2）：`VibrancyGlass` 和 `VibrancyGlassClear` 是 macOS 26 的 Liquid Glass。在 Windows 上，原生 UI 的透明窗口在未绘制任何内容的地方会透出背后的内容，而带材质的窗口没有菜单栏：Alt 和 F10 会以弹出菜单打开它的菜单 |

@@ -127,6 +127,9 @@ type window struct {
 	downloads     map[id][2]string // WKDownload: URL and path
 	attention     int              // the request of FlashFrame
 	maximized     bool
+	// AppKit owns the title bar during either full-screen animation. Its
+	// style bit can clear before the exit ends, so it alone cannot guard layout.
+	fullScreenTransition bool
 	// auxiliary tells that SetVisibleOnAllWorkspaces made a window that
 	// cannot go full screen an auxiliary of full-screen Spaces, to undo.
 	auxiliary     bool
@@ -1646,7 +1649,7 @@ func (w *window) Close() {
 // changes, so this runs after each of them.
 func (w *window) layoutTrafficLights() {
 	p := w.trafficLights
-	if p == nil || w.closed || w.IsFullScreen() {
+	if p == nil || w.closed || w.fullScreenTransition || w.IsFullScreen() {
 		return
 	}
 	closeBtn := send(w.win, "standardWindowButton:", 0)
@@ -2513,25 +2516,41 @@ func registerWindowClasses() {
 			// Space, and are left where they are as it comes out of it.
 			method("windowWillEnterFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = true
 					w.childrenAttached = true
 					w.attachChildren()
 				}
 			}),
 			method("windowDidFailToEnterFullScreen:", func(self id, _ objc.SEL, win id) {
 				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = false
 					w.leftFullScreen()
+					w.layoutTrafficLights()
 				}
 			}),
 			method("windowDidEnterFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = false
 					w.h.EnteredFullScreen()
 					if w.hiddenTitleBar() {
 						w.h.TitleBarChanged() // the traffic lights hid
 					}
 				}
 			}),
+			method("windowWillExitFullScreen:", func(self id, _ objc.SEL, n id) {
+				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = true
+				}
+			}),
+			method("windowDidFailToExitFullScreen:", func(self id, _ objc.SEL, win id) {
+				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = false
+					w.layoutTrafficLights()
+				}
+			}),
 			method("windowDidExitFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
+					w.fullScreenTransition = false
 					w.leftFullScreen()
 					w.layoutTrafficLights()
 					w.h.LeftFullScreen()
