@@ -130,6 +130,8 @@ type window struct {
 	// AppKit owns the title bar during either full-screen animation. Its
 	// style bit can clear before the exit ends, so it alone cannot guard layout.
 	fullScreenTransition bool
+	// Custom controls stay hidden until AppKit finishes restoring its title bar.
+	trafficLightsHiddenForExit bool
 	// auxiliary tells that SetVisibleOnAllWorkspaces made a window that
 	// cannot go full screen an auxiliary of full-screen Spaces, to undo.
 	auxiliary     bool
@@ -1676,6 +1678,50 @@ func (w *window) layoutTrafficLights() {
 	}
 }
 
+// AppKit briefly restores its default button positions while leaving full
+// screen. Keep custom buttons out of that intermediate title bar; moving them
+// there would compete with AppKit's animation instead.
+func (w *window) hideTrafficLightsForExit() {
+	if w.trafficLights == nil || !w.hiddenTitleBar() || w.opts.HideWindowButtons || w.closed {
+		return
+	}
+	w.trafficLightsHiddenForExit = true
+	w.setTrafficLightsHidden(true)
+}
+
+func (w *window) setTrafficLightsHidden(hidden bool) {
+	for i := uintptr(0); i < 3; i++ {
+		if button := send(w.win, "standardWindowButton:", i); button != 0 {
+			send(button, "setHidden:", boolArg(hidden))
+		}
+	}
+}
+
+func (w *window) restoreTrafficLightsAfterTransition() {
+	w.layoutTrafficLights()
+	if !w.trafficLightsHiddenForExit {
+		return
+	}
+	// AppKit can finish laying out its title bar after delivering the delegate
+	// notification. Place the controls once more in the next main-loop event,
+	// before the window draws them. A new transition retains the hiding until its
+	// own completion; a closed window must never be touched by this callback.
+	w.b.post(func() {
+		if w.closed || w.fullScreenTransition || !w.trafficLightsHiddenForExit {
+			return
+		}
+		// Unhiding can itself restore AppKit's default frames. Finish that
+		// native layout before positioning; both happen in this event, before
+		// the window can display the controls again.
+		w.setTrafficLightsHidden(false)
+		if button := send(w.win, "standardWindowButton:", 0); button != 0 {
+			send(send(send(button, "superview"), "superview"), "layoutSubtreeIfNeeded")
+		}
+		w.layoutTrafficLights()
+		w.trafficLightsHiddenForExit = false
+	})
+}
+
 // Navigation.
 
 func (w *window) LoadURL(url string) {
@@ -2525,12 +2571,13 @@ func registerWindowClasses() {
 				if w := b().windowFor(self); w != nil {
 					w.fullScreenTransition = false
 					w.leftFullScreen()
-					w.layoutTrafficLights()
+					w.restoreTrafficLightsAfterTransition()
 				}
 			}),
 			method("windowDidEnterFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
 					w.fullScreenTransition = false
+					w.restoreTrafficLightsAfterTransition()
 					w.h.EnteredFullScreen()
 					if w.hiddenTitleBar() {
 						w.h.TitleBarChanged() // the traffic lights hid
@@ -2540,19 +2587,20 @@ func registerWindowClasses() {
 			method("windowWillExitFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
 					w.fullScreenTransition = true
+					w.hideTrafficLightsForExit()
 				}
 			}),
 			method("windowDidFailToExitFullScreen:", func(self id, _ objc.SEL, win id) {
 				if w := b().windowFor(self); w != nil {
 					w.fullScreenTransition = false
-					w.layoutTrafficLights()
+					w.restoreTrafficLightsAfterTransition()
 				}
 			}),
 			method("windowDidExitFullScreen:", func(self id, _ objc.SEL, n id) {
 				if w := b().windowFor(self); w != nil {
 					w.fullScreenTransition = false
 					w.leftFullScreen()
-					w.layoutTrafficLights()
+					w.restoreTrafficLightsAfterTransition()
 					w.h.LeftFullScreen()
 					if w.hiddenTitleBar() {
 						w.h.TitleBarChanged()

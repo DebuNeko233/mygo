@@ -8,6 +8,8 @@ and restores the requested windowed placement after native animations finish.
 package e2e
 
 import (
+	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -42,6 +44,9 @@ func TestTrafficLightsRespectFullScreenTransition(t *testing.T) {
 					}
 				}
 				notify(tc.begin)
+				if strings.Contains(tc.begin, "WillExit") && buttonVisible(w) {
+					t.Error("custom buttons exposed AppKit's temporary exit position")
+				}
 				// Model a button position chosen by AppKit's intermediate title bar,
 				// then deliver a resize while the native full-screen bit is clear.
 				button := win.Send(objc.RegisterName("standardWindowButton:"), uintptr(0))
@@ -59,6 +64,11 @@ func TestTrafficLightsRespectFullScreenTransition(t *testing.T) {
 			if duringX != beforeX || duringY != beforeY {
 				t.Errorf("resize overwrote AppKit's transition position: (%g,%g) -> (%g,%g)", beforeX, beforeY, duringX, duringY)
 			}
+			eventually(t, "temporary traffic-light hiding restored", func() bool {
+				var visible bool
+				mygo.RunOnMain(func() { visible = buttonVisible(w) })
+				return visible
+			})
 			if afterX != 20 || afterY != 20 {
 				t.Errorf("windowed layout remained disabled after completion: (%g,%g)", afterX, afterY)
 			}
@@ -94,22 +104,100 @@ func TestTrafficLightsFullScreenRoundTrip(t *testing.T) {
 						t.Errorf("%s: controls at (%g,%g), want (20,20)", when, x, y)
 					}
 				}
+				// Native UI reveals its window after its first frame. AppKit
+				// can ignore a full-screen request issued before that reveal.
+				eventually(t, "window's first frame visible", func() bool {
+					return w.IsVisible() && firstFrameRevealed(w)
+				})
 				placed("before full screen")
 				w.Focus()
+				eventually(t, "window focused before full screen", w.IsFocused)
 				w.SetFullScreen(true)
 				eventually(t, "full-screen entrance completed", entered.Load)
 				if !w.IsFullScreen() {
 					t.Fatal("entered event left the window outside full screen")
 				}
+				var exposed atomic.Bool
+				t.Cleanup(w.OnResize(func() {
+					// AppKit clears the style bit before the exit animation
+					// ends. None of that intermediate title bar may show.
+					if !left.Load() && !w.IsFullScreen() && buttonVisible(w) {
+						exposed.Store(true)
+					}
+				}))
 				w.SetFullScreen(false)
 				eventually(t, "full-screen exit completed", left.Load)
 				if w.IsFullScreen() {
 					t.Fatal("left event retained the full-screen style")
+				}
+				eventually(t, "custom traffic lights visible at their restored position", func() bool {
+					var visible bool
+					var x, y float64
+					mygo.RunOnMain(func() {
+						visible = buttonVisible(w)
+						x, y = darwin.TestTrafficLights(w.NativeHandle())
+					})
+					return visible && x == 20 && y == 20
+				})
+				if exposed.Load() {
+					t.Error("native exit exposed custom controls before restoring their position")
 				}
 				placed("after full-screen exit")
 				w.SetSize(520, 360)
 				placed("after resizing the restored window")
 			})
 		}
+	}
+}
+
+// Read on the main thread; no runtime hooks are needed for native visibility.
+func buttonVisible(w *mygo.Window) bool {
+	win := objc.ID(w.NativeHandle())
+	for i := uintptr(0); i < 3; i++ {
+		button := win.Send(objc.RegisterName("standardWindowButton:"), i)
+		if button != 0 && button.Send(objc.RegisterName("isHiddenOrHasHiddenAncestor")) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Deferred restoration must not override a new transition or a caller's choice
+// to hide controls. Sending native notifications keeps cancellation deterministic.
+func TestTrafficLightsDeferredRestoreLifecycle(t *testing.T) {
+	for _, hide := range []bool{false, true} {
+		t.Run(fmt.Sprintf("hidden=%v", hide), func(t *testing.T) {
+			w := newWindow(t, mygo.WindowOptions{Width: 440, Height: 280,
+				TitleBarStyle: mygo.TitleBarHidden, HideWindowButtons: hide,
+				TrafficLightPosition: &mygo.Point{X: 20, Y: 20},
+				Content:              ui.View(func(c *ui.Context) { ui.Text(c, "Transition cancellation") })})
+			notify := func(name string) {
+				delegate := objc.ID(w.NativeHandle()).Send(objc.RegisterName("delegate"))
+				delegate.Send(objc.RegisterName(name), objc.ID(0))
+			}
+			mygo.RunOnMain(func() {
+				notify("windowWillExitFullScreen:")
+				notify("windowDidExitFullScreen:")
+				notify("windowWillEnterFullScreen:")
+			})
+			// This main-thread barrier runs after the deferred restoration.
+			mygo.RunOnMain(func() {
+				if buttonVisible(w) {
+					t.Error("queued restore exposed buttons during a new transition")
+				}
+				notify("windowDidFailToEnterFullScreen:")
+			})
+			eventually(t, "cancelled transition restored requested visibility", func() bool {
+				var visible bool
+				mygo.RunOnMain(func() { visible = buttonVisible(w) })
+				return visible == !hide
+			})
+			mygo.RunOnMain(func() {
+				notify("windowWillExitFullScreen:")
+				notify("windowDidExitFullScreen:")
+				w.Close() // its deferred restoration must not touch native objects
+			})
+			mygo.RunOnMain(func() {})
+		})
 	}
 }

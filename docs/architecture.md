@@ -7247,3 +7247,10 @@ which npm allows only for packages that exist: the first release uses an
 | web views in native UI | WKWebView in a clip view under the surface; `hitTest:` lets the pointer through | WebKitWebView in a `GtkLayout` under the area in a `GtkOverlay`; an input shape lets the pointer through | WebView2 composition controller in a DirectComposition target under the frames'; the surface sends it the mouse |
 | audio output | Audio Queue on the default output | PulseAudio simple API (PipeWire too), else ALSA `default` | WASAPI shared mode, reopened when the default output changes |
 | gamepads | GameController.framework, extended gamepad profile | evdev, the kernel's gamepad layout, Xbox's X and Y swapped back | XInput, four slots, Guide by `XInputGetStateEx` |
+
+On macOS, AppKit owns traffic-light layout during full-screen animations. A
+custom `TrafficLightPosition` does not compete with that layout. Custom buttons
+hide during exit, then the next main-loop event unhides them, completes native
+layout and reapplies the requested placement before drawing. Cancellation also
+restores them; a new transition defers that work, a closed window discards it,
+and `HideWindowButtons` never becomes a request to show buttons.
