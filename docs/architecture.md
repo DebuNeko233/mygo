@@ -6846,6 +6846,19 @@ a longer timeout only makes that rarer. So:
   fail) may wait a short while: a slow machine can only make them miss
   a bug, never fail right code.
 
+On macOS, a full-screen test waits for content readiness, application
+activation and the focused window's presentation on the active Space
+(`isOnActiveSpace` and `NSWindowOcclusionStateVisible`). `IsVisible` and
+`IsFocused` can already hold while the Dock is animating a switch from
+another application's full-screen Space. Requesting full screen then can
+be rejected by AppKit. The tests observe native success and failure
+outcomes, forwarding each to the real delegate: a rejection fails with
+its native outcome instead of waiting for a success callback that cannot
+arrive. This observer lives in `_test.go`, restores the delegate's class
+in cleanup and allocates its callbacks once per process. A separately
+identified temporary peer app checks this starting condition for native
+UI and webviews, and exits before its files are removed.
+
 ### What tests leave behind
 
 The GUI tests of a package share a process, and on Linux an X server,
