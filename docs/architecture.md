@@ -5333,7 +5333,11 @@ either.
     the user's setting, and `text.Flat`, for text a `ui.Font` draws
     `Antialiased` (as browsers draw `-webkit-font-smoothing:
     antialiased`), does not smooth; other engines draw both as other
-    text.
+    text. Each bitmap context explicitly allows and enables smoothing when
+    needed (`CGContextSetAllowsFontSmoothing` and
+    `CGContextSetShouldSmoothFonts`): requesting it alone can leave all
+    shades and Thick identical. Flat text and ordinary text with smoothing
+    disabled leave both switches off; color glyphs remain unshaded.
   - *Windows.* Glyphs take the rendering mode and grid fitting DirectWrite
     recommends for their font and size (`IDWriteFontFace3`'s, which from
     about 1.9 pixels a DIP downsamples natural symmetric rendering, as
