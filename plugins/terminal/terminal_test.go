@@ -1391,7 +1391,10 @@ func TestFont(t *testing.T) {
 	if _, _, bold := render(Font{Weight: 700}); bold < ink*11/10 {
 		t.Errorf("weight 700 has ink %d, 400 %d", bold, ink)
 	}
-	_, _, thick := render(Font{Thicken: true})
+	w2, h2, thick := render(Font{Thicken: true})
+	if w2 != w || h2 != h {
+		t.Errorf("thickening changed cell size from %dx%d to %dx%d", w, h, w2, h2)
+	}
 	if runtime.GOOS == "darwin" && thick < ink*103/100 {
 		t.Errorf("thickened text has ink %d, else %d", thick, ink)
 	} else if runtime.GOOS != "darwin" && thick != ink {

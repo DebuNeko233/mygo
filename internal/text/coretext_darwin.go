@@ -163,6 +163,7 @@ var ct struct {
 	bitmapContextCreate     func(data unsafe.Pointer, w, h, bitsPerComponent, bytesPerRow int, space uintptr, info uint32) uintptr
 	contextRelease          func(ctx uintptr)
 	contextAntialias        func(ctx uintptr, on bool)
+	contextAllowSmoothFonts func(ctx uintptr, on bool)
 	contextSmoothFonts      func(ctx uintptr, on bool)
 	contextAllowSubpixelPos func(ctx uintptr, on bool)
 	contextSubpixelPos      func(ctx uintptr, on bool)
@@ -270,6 +271,7 @@ func loadCoreText() error {
 	bind(cg, &ct.bitmapContextCreate, "CGBitmapContextCreate")
 	bind(cg, &ct.contextRelease, "CGContextRelease")
 	bind(cg, &ct.contextAntialias, "CGContextSetShouldAntialias")
+	bind(cg, &ct.contextAllowSmoothFonts, "CGContextSetAllowsFontSmoothing")
 	bind(cg, &ct.contextSmoothFonts, "CGContextSetShouldSmoothFonts")
 	bind(cg, &ct.contextAllowSubpixelPos, "CGContextSetAllowsFontSubpixelPositioning")
 	bind(cg, &ct.contextSubpixelPos, "CGContextSetShouldSubpixelPositionFonts")
@@ -1375,6 +1377,9 @@ func (e *coreText) glyph(f *Font, id uint32, scale, dx float32, shade Shade, _ b
 	// even in a context of alpha alone: the gray of the shade sets how
 	// much. Fonts are shaded while the user leaves it on; thick text is
 	// smoothed with white, the most.
+	// Bitmap contexts may disallow smoothing even when requested. Both
+	// switches are required, including when Thick overrides the preference.
+	ct.contextAllowSmoothFonts(ctx, smooth)
 	ct.contextSmoothFonts(ctx, smooth)
 	ct.contextAllowSubpixelPos(ctx, true)
 	ct.contextSubpixelPos(ctx, true)

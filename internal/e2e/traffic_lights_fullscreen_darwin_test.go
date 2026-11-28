@@ -16,6 +16,7 @@ import (
 	"github.com/ebitengine/purego/objc"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/internal/darwin"
+	"github.com/egoist/mygo/internal/wait"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -86,15 +87,23 @@ func TestTrafficLightsFullScreenRoundTrip(t *testing.T) {
 				name = string(style) + "/native"
 			}
 			t.Run(name, func(t *testing.T) {
-				opts := mygo.WindowOptions{Width: 480, Height: 320, TitleBarStyle: style,
+				opts := mygo.WindowOptions{Width: 480, Height: 320, Hidden: true, TitleBarStyle: style,
 					TrafficLightPosition: &mygo.Point{X: 20, Y: 20}}
 				if native {
 					opts.Content = ui.View(func(c *ui.Context) {
 						ui.Column(c).Fill().Padding(60, 20).Children(func() { ui.Text(c, "Full-screen controls") })
 					})
+				} else {
+					opts.URL = "app://localhost/"
 				}
-				w := newWindow(t, opts)
+				var w *mygo.Window
+				ready := make(chan struct{}, 1)
+				mygo.RunOnMain(func() {
+					w = newWindow(t, opts)
+					t.Cleanup(w.OnReadyToShow(func() { ready <- struct{}{} }))
+				})
 				var entered, left atomic.Bool
+				events := observeFullScreen(t, w)
 				t.Cleanup(w.OnEnterFullScreen(func() { entered.Store(true) }))
 				t.Cleanup(w.OnLeaveFullScreen(func() { left.Store(true) }))
 				placed := func(when string) {
@@ -104,22 +113,15 @@ func TestTrafficLightsFullScreenRoundTrip(t *testing.T) {
 						t.Errorf("%s: controls at (%g,%g), want (20,20)", when, x, y)
 					}
 				}
-				// Native UI reveals its window after its first frame. AppKit
-				// can ignore a full-screen request issued before that reveal.
-				eventually(t, "window's first frame visible", func() bool {
-					return w.IsVisible() && firstFrameRevealed(w)
-				})
+				// Subscribe before native drawing or page loading can finish.
+				wait.For(t, "window ready to show", ready)
+				showForFullScreen(t, w)
 				placed("before full screen")
-				// Window focus alone does not unhide an application. Finish
-				// application activation before requesting the window's focus;
-				// previous Space transitions can still be deactivating it.
-				mygo.App.Show()
-				mygo.App.Focus()
-				eventually(t, "application active before window focus", mygo.App.IsActive)
-				w.Focus()
-				eventually(t, "window focused before full screen", w.IsFocused)
 				w.SetFullScreen(true)
-				eventually(t, "full-screen entrance completed", entered.Load)
+				waitFullScreen(t, events, true)
+				if !entered.Load() {
+					t.Fatal("native entry did not emit the public callback")
+				}
 				if !w.IsFullScreen() {
 					t.Fatal("entered event left the window outside full screen")
 				}
@@ -132,7 +134,10 @@ func TestTrafficLightsFullScreenRoundTrip(t *testing.T) {
 					}
 				}))
 				w.SetFullScreen(false)
-				eventually(t, "full-screen exit completed", left.Load)
+				waitFullScreen(t, events, false)
+				if !left.Load() {
+					t.Fatal("native exit did not emit the public callback")
+				}
 				if w.IsFullScreen() {
 					t.Fatal("left event retained the full-screen style")
 				}

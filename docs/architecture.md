@@ -5333,7 +5333,11 @@ either.
     the user's setting, and `text.Flat`, for text a `ui.Font` draws
     `Antialiased` (as browsers draw `-webkit-font-smoothing:
     antialiased`), does not smooth; other engines draw both as other
-    text.
+    text. Each bitmap context explicitly allows and enables smoothing when
+    needed (`CGContextSetAllowsFontSmoothing` and
+    `CGContextSetShouldSmoothFonts`): requesting it alone can leave all
+    shades and Thick identical. Flat text and ordinary text with smoothing
+    disabled leave both switches off; color glyphs remain unshaded.
   - *Windows.* Glyphs take the rendering mode and grid fitting DirectWrite
     recommends for their font and size (`IDWriteFontFace3`'s, which from
     about 1.9 pixels a DIP downsamples natural symmetric rendering, as
@@ -6841,6 +6845,19 @@ a longer timeout only makes that rarer. So:
 - Checks that nothing happens (`select` on `time.After` with nothing to
   fail) may wait a short while: a slow machine can only make them miss
   a bug, never fail right code.
+
+On macOS, a full-screen test waits for content readiness, application
+activation and the focused window's presentation on the active Space
+(`isOnActiveSpace` and `NSWindowOcclusionStateVisible`). `IsVisible` and
+`IsFocused` can already hold while the Dock is animating a switch from
+another application's full-screen Space. Requesting full screen then can
+be rejected by AppKit. The tests observe native success and failure
+outcomes, forwarding each to the real delegate: a rejection fails with
+its native outcome instead of waiting for a success callback that cannot
+arrive. This observer lives in `_test.go`, restores the delegate's class
+in cleanup and allocates its callbacks once per process. A separately
+identified temporary peer app checks this starting condition for native
+UI and webviews, and exits before its files are removed.
 
 ### What tests leave behind
 
